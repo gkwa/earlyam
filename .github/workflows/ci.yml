@@ -30,10 +30,10 @@ jobs:
           go-version: stable
       - uses: newrelic-experimental/gha-new-relic-exporter@latest
       - name: Set GOVERSION environment variable (Linux/macOS)
-        if: runner.os != Windows
+        if: runner.os != 'Windows'
         run: echo "GOVERSION=$(go version)" >> $GITHUB_ENV
       - name: Set GOVERSION environment variable (Windows)
-        if: runner.os == Windows
+        if: runner.os == 'Windows'
         run: |
           echo "GOVERSION=$(go version)" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Build & Test
@@ -54,7 +54,7 @@ jobs:
           otel-cli span end
       - uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf
       - name: Run GoReleaser
-        if: runner.os == Linux
+        if: runner.os == 'Linux'
         run: |
           otel-cli span start \
             --name GoReleaser Build \
@@ -64,7 +64,7 @@ jobs:
           goreleaser release --snapshot --skip=publish --clean
           otel-cli span end
       - name: Colored Output Test
-        if: runner.os == Linux
+        if: runner.os == 'Linux'
         shell: script -q -e -c "bash {0}"
         run: |
           otel-cli span start \
