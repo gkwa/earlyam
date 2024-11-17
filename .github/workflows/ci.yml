@@ -39,18 +39,13 @@ jobs:
             --attribute "cicd.pipeline.task.name=go-build" \
             --attribute "cicd.pipeline.task.type=build" \
             --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-build"
-
           go build -v
-
           otel-cli span end
-
           otel-cli span start --name "Run Go Tests" \
             --attribute "cicd.pipeline.task.name=go-test" \
             --attribute "cicd.pipeline.task.type=test" \
             --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-test"
-
           go test ./...
-
           otel-cli span end
       - uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf
       - name: Run GoReleaser
@@ -66,3 +61,16 @@ jobs:
           otel-cli span start --name "Color Test" --attribute "cicd.pipeline.task.name=color-test" --attribute "cicd.pipeline.task.type=test" --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-colortest"
           go run main.go -- main.go
           otel-cli span end
+  otel-export-trace:
+    if: always()
+    name: OpenTelemetry Export Trace
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - name: Export Workflow Trace
+        uses: inception-health/otel-export-trace-action@latest
+        with:
+          otlpEndpoint: ${{ secrets.OTEL_ENDPOINT }}
+          otlpHeaders: ${{ secrets.OTLP_HEADERS }}
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
