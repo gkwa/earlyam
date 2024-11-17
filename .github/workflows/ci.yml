@@ -49,17 +49,13 @@ jobs:
           set -e
           docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span start \
             --name "Build Go Project" \
-            --attribute cicd.pipeline.task.name=go-build \
-            --attribute cicd.pipeline.task.type=build \
-            --attribute cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-build || true
+            -a "cicd.pipeline.task.name=go-build,cicd.pipeline.task.type=build,cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-build" || true
           go build -v
           docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span end || true
 
           docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span start \
             --name "Run Go Tests" \
-            --attribute cicd.pipeline.task.name=go-test \
-            --attribute cicd.pipeline.task.type=test \
-            --attribute cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-test || true
+            -a "cicd.pipeline.task.name=go-test,cicd.pipeline.task.type=test,cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-test" || true
           go test ./...
           docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span end || true
       - uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf
@@ -69,9 +65,7 @@ jobs:
         run: |
           docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span start \
             --name "GoReleaser Build" \
-            --attribute cicd.pipeline.task.name=goreleaser \
-            --attribute cicd.pipeline.task.type=build \
-            --attribute cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-release || true
+            -a "cicd.pipeline.task.name=goreleaser,cicd.pipeline.task.type=build,cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-release" || true
           goreleaser release --snapshot --skip=publish --clean
           docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span end || true
       - name: Colored Output Test
@@ -80,8 +74,6 @@ jobs:
         run: |
           docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span start \
             --name "Color Test" \
-            --attribute cicd.pipeline.task.name=color-test \
-            --attribute cicd.pipeline.task.type=test \
-            --attribute cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-colortest || true
+            -a "cicd.pipeline.task.name=color-test,cicd.pipeline.task.type=test,cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-colortest" || true
           go run main.go -- main.go
           docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span end || true
