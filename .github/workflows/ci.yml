@@ -7,7 +7,7 @@ name: Build & Test
     branches:
       - "*"
   schedule:
-    - cron: 01 13 * *SAT
+    - cron: 01 13 * * SAT
 env:
   OTEL_SERVICE_NAME: build-and-test-pipeline
   OTEL_RESOURCE_ATTRIBUTES: cicd.pipeline.name=Build and Test Pipeline,cicd.pipeline.run.id=${{ github.run_id }}
