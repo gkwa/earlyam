@@ -10,7 +10,7 @@ name: Build & Test
     - cron: 01 13 * * SAT
 env:
   OTEL_SERVICE_NAME: build-and-test-pipeline
-  OTEL_RESOURCE_ATTRIBUTES: cicd.pipeline.name=Build and Test Pipeline,cicd.pipeline.run.id=${{ github.run_id }}
+  OTEL_RESOURCE_ATTRIBUTES: cicd.pipeline.name=Build and Test Pipeline, cicd.pipeline.run.id=${{ github.run_id }}
   GHA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
   GHA_RUN_ID: ${{ github.event.workflow_run.id }}
@@ -34,16 +34,20 @@ jobs:
         run: echo "GOVERSION=$(go version)" >> $GITHUB_ENV
       - name: Set GOVERSION environment variable (Windows)
         if: runner.os == 'Windows'
-        run: echo "GOVERSION=$(go version)" | Out-File -FilePath $env:GITHUB_ENV -Append
+        run: |
+          echo "GOVERSION=$(go version)" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Build & Test
         run: |
-          otel-cli span start --name "Build Go Project" \
+          otel-cli span start \
+            --name "Build Go Project" \
             --attribute "cicd.pipeline.task.name=go-build" \
             --attribute "cicd.pipeline.task.type=build" \
             --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-build"
           go build -v
           otel-cli span end
-          otel-cli span start --name "Run Go Tests" \
+
+          otel-cli span start \
+            --name "Run Go Tests" \
             --attribute "cicd.pipeline.task.name=go-test" \
             --attribute "cicd.pipeline.task.type=test" \
             --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-test"
@@ -53,13 +57,21 @@ jobs:
       - name: Run GoReleaser
         if: runner.os == 'Linux'
         run: |
-          otel-cli span start --name "GoReleaser Build" --attribute "cicd.pipeline.task.name=goreleaser" --attribute "cicd.pipeline.task.type=build" --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-release"
+          otel-cli span start \
+            --name "GoReleaser Build" \
+            --attribute "cicd.pipeline.task.name=goreleaser" \
+            --attribute "cicd.pipeline.task.type=build" \
+            --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-release"
           goreleaser release --snapshot --skip=publish --clean
           otel-cli span end
       - name: Colored Output Test
         if: runner.os == 'Linux'
         shell: script -q -e -c "bash {0}"
         run: |
-          otel-cli span start --name "Color Test" --attribute "cicd.pipeline.task.name=color-test" --attribute "cicd.pipeline.task.type=test" --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-colortest"
+          otel-cli span start \
+            --name "Color Test" \
+            --attribute "cicd.pipeline.task.name=color-test" \
+            --attribute "cicd.pipeline.task.type=test" \
+            --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-colortest"
           go run main.go -- main.go
           otel-cli span end
