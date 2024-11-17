@@ -1,8 +1,10 @@
 name: new-relic-exporter
 on:
   workflow_run:
-    workflows: ["*"]
-    types: [completed]
+    workflows:
+      - "*"
+    types:
+      - completed
 env:
   GHA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
