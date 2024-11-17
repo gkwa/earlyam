@@ -11,7 +11,6 @@ on:
 env:
   OTEL_SERVICE_NAME: build-and-test-pipeline
   OTEL_RESOURCE_ATTRIBUTES: cicd.pipeline.name=Build and Test Pipeline, cicd.pipeline.run.id=${{ github.run_id }}
-  OTEL_EXPORTER_OTLP_ENDPOINT: "https://otlp.nr-data.net:4318"
   OTEL_EXPORTER_OTLP_HEADERS: api-key=${{ secrets.NEW_RELIC_LICENSE_KEY }}
   GHA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
@@ -50,13 +49,13 @@ jobs:
           set -e
           # Start a background span server
           docker run -d --network host -v /tmp/otel-socket:/tmp/otel-socket \
-            --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
             ghcr.io/equinix-labs/otel-cli:latest span background \
             --service build-test --name "Build & Test Pipeline" --sockdir /tmp/otel-socket
           sleep 1
 
           docker run --network host -v /tmp/otel-socket:/tmp/otel-socket \
-            --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
             ghcr.io/equinix-labs/otel-cli:latest span event \
             --name "Build Go Project" \
             -a "cicd.pipeline.task.name=go-build,cicd.pipeline.task.type=build,cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-build" \
@@ -64,7 +63,7 @@ jobs:
           go build -v
 
           docker run --network host -v /tmp/otel-socket:/tmp/otel-socket \
-            --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
             ghcr.io/equinix-labs/otel-cli:latest span event \
             --name "Run Go Tests" \
             -a "cicd.pipeline.task.name=go-test,cicd.pipeline.task.type=test,cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-test" \
@@ -73,7 +72,7 @@ jobs:
 
           # End the background span
           docker run --network host -v /tmp/otel-socket:/tmp/otel-socket \
-            --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
             ghcr.io/equinix-labs/otel-cli:latest span end --sockdir /tmp/otel-socket
       - uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf
         if: startsWith(github.ref, 'refs/tags/')
@@ -81,7 +80,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') && runner.os == 'Linux'
         run: |
           docker run -d --network host -v /tmp/otel-socket:/tmp/otel-socket \
-            --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
             ghcr.io/equinix-labs/otel-cli:latest span background \
             --service goreleaser --name "GoReleaser Build" --sockdir /tmp/otel-socket
           sleep 1
@@ -89,14 +88,14 @@ jobs:
           goreleaser release --snapshot --skip=publish --clean
 
           docker run --network host -v /tmp/otel-socket:/tmp/otel-socket \
-            --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
             ghcr.io/equinix-labs/otel-cli:latest span end --sockdir /tmp/otel-socket
       - name: Colored Output Test
         if: runner.os == 'Linux'
         shell: script -q -e -c "bash {0}"
         run: |
           docker run -d --network host -v /tmp/otel-socket:/tmp/otel-socket \
-            --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
             ghcr.io/equinix-labs/otel-cli:latest span background \
             --service colortest --name "Color Test" --sockdir /tmp/otel-socket
           sleep 1
@@ -104,5 +103,5 @@ jobs:
           go run main.go -- main.go
 
           docker run --network host -v /tmp/otel-socket:/tmp/otel-socket \
-            --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
             ghcr.io/equinix-labs/otel-cli:latest span end --sockdir /tmp/otel-socket
