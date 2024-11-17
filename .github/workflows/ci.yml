@@ -11,6 +11,10 @@ name: Build & Test
 env:
   OTEL_SERVICE_NAME: build-and-test-pipeline
   OTEL_RESOURCE_ATTRIBUTES: cicd.pipeline.name=Build and Test Pipeline,cicd.pipeline.run.id=${{ github.run_id }}
+  GHA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+  GHA_RUN_ID: ${{ github.event.workflow_run.id }}
+  GHA_RUN_NAME: ${{ github.event.workflow_run.name }}
 jobs:
   build:
     name: Build & Test
@@ -23,12 +27,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed
         with:
-          go-version: stable
-      - uses: corentinmusard/otel-cicd-action@v1
-        with:
-          otlpEndpoint: ${{ secrets.OTEL_ENDPOINT }}
-          otlpHeaders: ${{ secrets.OTLP_HEADERS }}
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          go-version: ">=1.21"
+      - uses: newrelic-experimental/gha-new-relic-exporter@latest
       - name: Set GOVERSION environment variable (Linux/macOS)
         if: runner.os != 'Windows'
         run: echo "GOVERSION=$(go version)" >> $GITHUB_ENV
