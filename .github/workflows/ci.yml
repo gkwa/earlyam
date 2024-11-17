@@ -24,9 +24,11 @@ jobs:
       - uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed
         with:
           go-version: ">=1.21"
-      - uses: open-telemetry/opentelemetry-actions/setup@v1
+      - uses: corentinmusard/otel-cicd-action@v1
         with:
-          endpoint: ${{ secrets.OTEL_ENDPOINT }}
+          otlpEndpoint: ${{ secrets.OTEL_ENDPOINT }}
+          otlpHeaders: ${{ secrets.OTLP_HEADERS }}
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
       - name: Set GOVERSION environment variable (Linux/macOS)
         if: runner.os != 'Windows'
         run: echo "GOVERSION=$(go version)" >> $GITHUB_ENV
@@ -61,16 +63,3 @@ jobs:
           otel-cli span start --name "Color Test" --attribute "cicd.pipeline.task.name=color-test" --attribute "cicd.pipeline.task.type=test" --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-colortest"
           go run main.go -- main.go
           otel-cli span end
-  otel-export-trace:
-    if: always()
-    name: OpenTelemetry Export Trace
-    runs-on: ubuntu-latest
-    needs:
-      - build
-    steps:
-      - name: Export Workflow Trace
-        uses: inception-health/otel-export-trace-action@latest
-        with:
-          otlpEndpoint: ${{ secrets.OTEL_ENDPOINT }}
-          otlpHeaders: ${{ secrets.OTLP_HEADERS }}
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
