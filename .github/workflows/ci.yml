@@ -36,9 +36,7 @@ jobs:
           go-version: stable
       - name: Install OpenTelemetry CLI
         run: |
-          curl -L https://github.com/equinix-labs/otel-cli/releases/latest/download/otel-cli-linux-amd64 -o otel-cli
-          chmod +x otel-cli
-          sudo mv otel-cli /usr/local/bin/
+          docker pull ghcr.io/equinix-labs/otel-cli:latest
       - name: Set GOVERSION environment variable (Linux/macOS)
         if: runner.os != 'Windows'
         run: echo "GOVERSION=$(go version)" >> $GITHUB_ENV
@@ -49,40 +47,41 @@ jobs:
       - name: Build & Test
         run: |
           set -e
-          otel-cli span start \
+          docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span start \
             --name "Build Go Project" \
             --attribute cicd.pipeline.task.name=go-build \
             --attribute cicd.pipeline.task.type=build \
             --attribute cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-build || true
           go build -v
-          otel-cli span end || true
-          otel-cli span start \
+          docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span end || true
+
+          docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span start \
             --name "Run Go Tests" \
             --attribute cicd.pipeline.task.name=go-test \
             --attribute cicd.pipeline.task.type=test \
             --attribute cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-test || true
           go test ./...
-          otel-cli span end || true
+          docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span end || true
       - uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf
         if: startsWith(github.ref, 'refs/tags/')
       - name: Run GoReleaser
         if: startsWith(github.ref, 'refs/tags/') && runner.os == 'Linux'
         run: |
-          otel-cli span start \
+          docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span start \
             --name "GoReleaser Build" \
             --attribute cicd.pipeline.task.name=goreleaser \
             --attribute cicd.pipeline.task.type=build \
             --attribute cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-release || true
           goreleaser release --snapshot --skip=publish --clean
-          otel-cli span end || true
+          docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span end || true
       - name: Colored Output Test
         if: runner.os == 'Linux'
         shell: script -q -e -c "bash {0}"
         run: |
-          otel-cli span start \
+          docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span start \
             --name "Color Test" \
             --attribute cicd.pipeline.task.name=color-test \
             --attribute cicd.pipeline.task.type=test \
             --attribute cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-colortest || true
           go run main.go -- main.go
-          otel-cli span end || true
+          docker run --network host --env OTEL_EXPORTER_OTLP_ENDPOINT --env OTEL_EXPORTER_OTLP_HEADERS ghcr.io/equinix-labs/otel-cli:latest span end || true
