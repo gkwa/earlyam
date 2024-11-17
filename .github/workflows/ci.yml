@@ -2,41 +2,50 @@ name: Build & Test
 "on":
   push:
     branches:
-    - '*'
+      - "*"
   pull_request:
     branches:
-    - '*'
+      - "*"
   schedule:
-  - cron: 01 13 * * SAT
+    - cron: 01 13 * *SAT
+env:
+  OTEL_SERVICE_NAME: build-and-test-pipeline
+  OTEL_RESOURCE_ATTRIBUTES: cicd.pipeline.name=Build and Test Pipeline,cicd.pipeline.run.id=${{ github.run_id }}
 jobs:
   build:
     name: Build & Test
     strategy:
       matrix:
         os:
-        - ubuntu-latest
+          - ubuntu-latest
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-    - uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5
-      with:
-        go-version: '>=1.21'
-    - name: Set GOVERSION environment variable (Linux/macOS)
-      if: runner.os != 'Windows'
-      run: echo "GOVERSION=$(go version)" >> $GITHUB_ENV
-    - name: Set GOVERSION environment variable (Windows)
-      if: runner.os == 'Windows'
-      run: echo "GOVERSION=$(go version)" | Out-File -FilePath $env:GITHUB_ENV -Append
-    - name: Build & Test
-      run: |
-        go build -v
-        go test ./...
-    - name: Run GoReleaser
-      if: runner.os == 'Linux'
-      uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf # v6
-      with:
-        args: release --snapshot --skip=publish --clean
-    - name: Colored Output Test
-      if: runner.os == 'Linux'
-      shell: script -q -e -c "bash {0}"
-      run: go run main.go -- main.go
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed
+        with:
+          go-version: ">=1.21"
+      - uses: open-telemetry/opentelemetry-actions/setup@v1
+        with:
+          endpoint: ${{ secrets.OTEL_ENDPOINT }}
+      - name: Set GOVERSION environment variable (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: echo "GOVERSION=$(go version)" >> $GITHUB_ENV
+      - name: Set GOVERSION environment variable (Windows)
+        if: runner.os == 'Windows'
+        run: echo "GOVERSION=$(go version)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Build & Test
+        run: "otel-cli span start --name \"Build Go Project\" --attribute \"cicd.pipeline.task.name=go-build\" --attribute \"cicd.pipeline.task.type=build\" --attribute \"cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-build\"\ngo build -v\notel-cli span end\n\notel-cli span start --name \"Run Go Tests\" --attribute \"cicd.pipeline.task.name=go-test\" --attribute \"cicd.pipeline.task.type=test\" --attribute \"cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-test\" \ngo test ./...\notel-cli span end\n"
+      - name: Run GoReleaser
+        if: runner.os == 'Linux'
+        run: |
+          otel-cli span start --name "GoReleaser Build" --attribute "cicd.pipeline.task.name=goreleaser" --attribute "cicd.pipeline.task.type=build" --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-release"
+          goreleaser release --snapshot --skip=publish --clean
+          otel-cli span end
+        uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf
+      - name: Colored Output Test
+        if: runner.os == 'Linux'
+        shell: script -q -e -c "bash {0}"
+        run: |
+          otel-cli span start --name "Color Test" --attribute "cicd.pipeline.task.name=color-test" --attribute "cicd.pipeline.task.type=test" --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-colortest"
+          go run main.go -- main.go
+          otel-cli span end
