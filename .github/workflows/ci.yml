@@ -34,7 +34,7 @@ jobs:
         if: runner.os == 'Windows'
         run: echo "GOVERSION=$(go version)" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Build & Test
-        run: "otel-cli span start --name \"Build Go Project\" --attribute \"cicd.pipeline.task.name=go-build\" --attribute \"cicd.pipeline.task.type=build\" --attribute \"cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-build\"\ngo build -v\notel-cli span end\n\notel-cli span start --name \"Run Go Tests\" --attribute \"cicd.pipeline.task.name=go-test\" --attribute \"cicd.pipeline.task.type=test\" --attribute \"cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-test\" \ngo test ./...\notel-cli span end\n"
+        run: otel-cli span start --name \"Build Go Project\" --attribute \"cicd.pipeline.task.name=go-build\" --attribute \"cicd.pipeline.task.type=build\" --attribute \"cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-build\"\ngo build -v\notel-cli span end\n\notel-cli span start --name \"Run Go Tests\" --attribute \"cicd.pipeline.task.name=go-test\" --attribute \"cicd.pipeline.task.type=test\" --attribute \"cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-test\" \ngo test ./...\notel-cli span end\n"
       - uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf
       - name: Run GoReleaser
         if: runner.os == 'Linux'
@@ -42,7 +42,6 @@ jobs:
           otel-cli span start --name "GoReleaser Build" --attribute "cicd.pipeline.task.name=goreleaser" --attribute "cicd.pipeline.task.type=build" --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-release"
           goreleaser release --snapshot --skip=publish --clean
           otel-cli span end
-        uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf
       - name: Colored Output Test
         if: runner.os == 'Linux'
         shell: script -q -e -c "bash {0}"
