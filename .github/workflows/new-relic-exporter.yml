@@ -16,6 +16,6 @@ jobs:
     if: ${{ always() }} # This ensures it runs even if the watched workflow fails
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - name: new-relic-exporter
         uses: newrelic-experimental/gha-new-relic-exporter@latest
