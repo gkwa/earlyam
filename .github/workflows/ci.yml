@@ -1,5 +1,5 @@
 name: Build & Test
-"on":
+on:
   push:
     branches:
       - "*"
@@ -7,10 +7,16 @@ name: Build & Test
     branches:
       - "*"
   schedule:
-    - cron: 01 13 * * SAT
+    - cron: "01 13 * * SAT"
 env:
   OTEL_SERVICE_NAME: build-and-test-pipeline
-  OTEL_RESOURCE_ATTRIBUTES: cicd.pipeline.name=Build and Test Pipeline,cicd.pipeline.run.id=${{ github.run_id }}
+  OTEL_RESOURCE_ATTRIBUTES: cicd.pipeline.name=Build and Test Pipeline, cicd.pipeline.run.id=${{ github.run_id }}
+  OTEL_EXPORTER_OTLP_HEADERS: api-key=${{ secrets.NEW_RELIC_LICENSE_KEY }}
+  GHA_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+  GHA_RUN_ID: ${{ github.event.workflow_run.id }}
+  GHA_RUN_NAME: ${{ github.event.workflow_run.name }}
+  GHA_DEBUG: ${{ secrets.GHA_DEBUG }}
 jobs:
   build:
     name: Build & Test
@@ -19,47 +25,83 @@ jobs:
         os:
           - ubuntu-latest
     runs-on: ${{ matrix.os }}
+    permissions:
+      actions: read
+      contents: read
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@cbb722410c2e876e24abbe8de2cc27693e501dcb
       - uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed
         with:
           go-version: stable
-      - uses: corentinmusard/otel-cicd-action@1c46d1e83d210f0467f67adcd5438dfd49304e2c # v1
-        with:
-          otlpEndpoint: ${{ secrets.OTEL_ENDPOINT }}
-          otlpHeaders: ${{ secrets.OTLP_HEADERS }}
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install OpenTelemetry CLI
+        run: |
+          docker pull ghcr.io/equinix-labs/otel-cli:latest
+          mkdir -p /tmp/otel-socket
       - name: Set GOVERSION environment variable (Linux/macOS)
         if: runner.os != 'Windows'
         run: echo "GOVERSION=$(go version)" >> $GITHUB_ENV
       - name: Set GOVERSION environment variable (Windows)
         if: runner.os == 'Windows'
-        run: echo "GOVERSION=$(go version)" | Out-File -FilePath $env:GITHUB_ENV -Append
+        run: |
+          echo "GOVERSION=$(go version)" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Build & Test
         run: |
-          otel-cli span start --name "Build Go Project" \
-            --attribute "cicd.pipeline.task.name=go-build" \
-            --attribute "cicd.pipeline.task.type=build" \
-            --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-build"
+          set -e
+          # Start a background span server
+          docker run -d --network host -v /tmp/otel-socket:/tmp/otel-socket \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
+            ghcr.io/equinix-labs/otel-cli:latest span background \
+            --service build-test --name "Build & Test Pipeline" --sockdir /tmp/otel-socket
+          sleep 1
+
+          docker run --network host -v /tmp/otel-socket:/tmp/otel-socket \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
+            ghcr.io/equinix-labs/otel-cli:latest span event \
+            --name "Build Go Project" \
+            -a "cicd.pipeline.task.name=go-build,cicd.pipeline.task.type=build,cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-build" \
+            --sockdir /tmp/otel-socket
           go build -v
-          otel-cli span end
-          otel-cli span start --name "Run Go Tests" \
-            --attribute "cicd.pipeline.task.name=go-test" \
-            --attribute "cicd.pipeline.task.type=test" \
-            --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-test"
+
+          docker run --network host -v /tmp/otel-socket:/tmp/otel-socket \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
+            ghcr.io/equinix-labs/otel-cli:latest span event \
+            --name "Run Go Tests" \
+            -a "cicd.pipeline.task.name=go-test,cicd.pipeline.task.type=test,cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-test" \
+            --sockdir /tmp/otel-socket
           go test ./...
-          otel-cli span end
+
+          # End the background span
+          docker run --network host -v /tmp/otel-socket:/tmp/otel-socket \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
+            ghcr.io/equinix-labs/otel-cli:latest span end --sockdir /tmp/otel-socket
       - uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf
+        if: startsWith(github.ref, 'refs/tags/')
       - name: Run GoReleaser
-        if: runner.os == 'Linux'
+        if: startsWith(github.ref, 'refs/tags/') && runner.os == 'Linux'
         run: |
-          otel-cli span start --name "GoReleaser Build" --attribute "cicd.pipeline.task.name=goreleaser" --attribute "cicd.pipeline.task.type=build" --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-release"
+          docker run -d --network host -v /tmp/otel-socket:/tmp/otel-socket \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
+            ghcr.io/equinix-labs/otel-cli:latest span background \
+            --service goreleaser --name "GoReleaser Build" --sockdir /tmp/otel-socket
+          sleep 1
+
           goreleaser release --snapshot --skip=publish --clean
-          otel-cli span end
+
+          docker run --network host -v /tmp/otel-socket:/tmp/otel-socket \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
+            ghcr.io/equinix-labs/otel-cli:latest span end --sockdir /tmp/otel-socket
       - name: Colored Output Test
         if: runner.os == 'Linux'
         shell: script -q -e -c "bash {0}"
         run: |
-          otel-cli span start --name "Color Test" --attribute "cicd.pipeline.task.name=color-test" --attribute "cicd.pipeline.task.type=test" --attribute "cicd.pipeline.task.run.id=${GITHUB_RUN_ID}-colortest"
+          docker run -d --network host -v /tmp/otel-socket:/tmp/otel-socket \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
+            ghcr.io/equinix-labs/otel-cli:latest span background \
+            --service colortest --name "Color Test" --sockdir /tmp/otel-socket
+          sleep 1
+
           go run main.go -- main.go
-          otel-cli span end
+
+          docker run --network host -v /tmp/otel-socket:/tmp/otel-socket \
+            --env OTEL_EXPORTER_OTLP_HEADERS \
+            ghcr.io/equinix-labs/otel-cli:latest span end --sockdir /tmp/otel-socket
