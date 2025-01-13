@@ -74,7 +74,7 @@ jobs:
           docker run --network host -v /tmp/otel-socket:/tmp/otel-socket \
             --env OTEL_EXPORTER_OTLP_HEADERS \
             ghcr.io/equinix-labs/otel-cli:latest span end --sockdir /tmp/otel-socket
-      - uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf
+      - uses: goreleaser/goreleaser-action@d28c98212f8e972575198214e0c3f2dbca157dc5
         if: startsWith(github.ref, 'refs/tags/')
       - name: Run GoReleaser
         if: startsWith(github.ref, 'refs/tags/') && runner.os == 'Linux'
