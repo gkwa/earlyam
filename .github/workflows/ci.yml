@@ -29,7 +29,7 @@ jobs:
       actions: read
       contents: read
     steps:
-      - uses: actions/checkout@009b9ae9e446ad8d9b8c809870b0fbcc5e03573e
+      - uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2
       - uses: actions/setup-go@3d10edb4c2d9ac9923e94a5ec73fa063078e9234
         with:
           go-version: stable
