@@ -30,7 +30,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-      - uses: actions/setup-go@02aadfee7f572f67453450365b688df2c3f95730
+      - uses: actions/setup-go@ae252ee6fb24babc50e89fc67c4aa608e69fbf8f
         with:
           go-version: stable
       - name: Install OpenTelemetry CLI
