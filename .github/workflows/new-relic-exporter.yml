@@ -23,4 +23,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: new-relic-exporter
-        uses: newrelic-experimental/gha-new-relic-exporter@latest
+        uses: newrelic-experimental/gha-new-relic-exporter@9483d54bf6e0d5030301c7d878fda01080c3ac71 # latest
